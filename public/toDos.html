@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>toDos</title>
+    <link rel="stylesheet" href="css/base.css">
+    <link rel="stylesheet" href="css/index.css">
+    <link rel="icon" type="image/png" href="https://icon-sets.iconify.design/favicon@32.png" sizes="32x32" />
+</head>
+
+<body>
+    <div id="app">
+        <to-dos :is-editing="isEditing" :checked-flag="checkedFlag" :to-dos="toDos" :sub="sub"
+            :delete-task-items="deleteTaskItems" :update-task-item="updateTaskItem"
+            :clear-complete-item="clearCompleteItem" :get-all-items="getAllItems" :unfinished-items="unfinishedItems"
+            :completed-items="completedItems" :calculate-left-items="calculateLeftItems" :change-edit="changeEdit"
+            :quit="quit" :reload-page="reloadPage" :vary-task-state="varyTaskState">
+        </to-dos>
+    </div>
+    <script src="js/vue.js"></script>
+    <script src="js/axios.js"></script>
+    <script type="text/javascript">
+        // 配置请求的基准URL地址
+        axios.defaults.baseURL = 'http://localhost:3001/';
+        //axios设置响应拦截器
+        axios.interceptors.response.use(response => {
+            return response.data //拦截处理响应结果，直接返回需要的数据
+        }, err => {
+            console.log(err)
+        });
+        var head = {
+            template: `
+            <header class="header">
+                <h1>todos</h1>
+                <input placeholder="What needs to be done?" class="new-todo" @keyup.enter="add($event)"
+                    v-focus>
+            </header>
+            `,
+            methods: {
+                add: function (event) {
+                    !event.target.value.trim().length ? confirm("你输入的数据为空！") : this.$emit('add-event', event
+                        .target.value);
+                    // 清空输入框
+                    event.target.value = "";
+                },
+            },
+        };
+        var mainBody = {
+            props: ["toDos", "isEditing", "reloadPage"],
+            template: `
+            <section class="main">
+                <input id="toggle-all" type="checkbox" class="toggle-all" v-model="selectAll">
+                <label for="toggle-all">Mark all as complete</label>
+                <ul class="todo-list">
+                    <li :class="{completed:item.completed,editing:isEditing===item}" v-for="(item,index) in toDos"
+                        :key="item.id">
+                        <div class="view">
+                            <input type="checkbox" class="toggle" v-model="item.completed" @change="vary(item.id,$event)">
+                            <label @dblclick="edit(item.id,$event)">{{item.title}}</label>
+                            <button class="destroy" @click="del(item.id)"></button>
+                        </div>
+                        <input class="edit" :value="item.title" @keyup.esc="quit"
+                            @keyup.enter="$event.target.blur()" @blur="update(item,item.id,index,$event)" v-editing-focus="isEditing===item">
+                    </li>
+                </ul>
+            </section>
+            `,
+            methods: {
+                edit: function (id) {
+                    this.$emit('edit-event', id);
+                },
+                quit: function () {
+                    this.$emit('quit-event');
+                },
+                update: function (item, id, currentIndex, event) {
+                    // 输入框编辑
+                    if (!event.target.value.trim().length) {
+                        confirm("任务标题不能为空！");
+                        event.target.value = item.title;
+                    }
+                    this.$emit('update-event', {
+                        item: item,
+                        id: id,
+                        currentIndex: currentIndex,
+                        taskValue: event.target.value
+                    });
+                },
+                del: function (currentId) {
+                    this.$emit('del-event', currentId);
+                },
+                vary: function (id) {
+                    this.$emit('vary-event', id);
+                },
+            },
+            computed: {
+                // 直接当做普通属性调用不加括号
+                // 任何data中数据变化立即重新计算
+                // 计算属性会缓存
+                selectAll: {
+                    // get方法如果数据所有的completed为true则返回true
+                    // set方法把true传入
+                    get() {
+                        return this.toDos.every(item =>
+                            item.completed
+                        );
+                    },
+                    // 调用后台接口实现全选功能
+                    async set(newVal) {
+                        /* this.toDos.forEach(item =>
+                            item.completed = newVal
+                        ); */
+                        let val = null;
+                        newVal ? val = 1 : val = 0;
+                        var ret = await axios.get('/all/' + val);
+                        // 重新加载任务列表页面
+                        this.reloadPage(ret);
+                    }
+                },
+            },
+            // 配置局部自定义指令
+            directives: {
+                // 当作用了该指令的元素所在模板发生更新的时候，则这个 update 钩子会自动调用
+                editingFocus: {
+                    // 在指令钩子中，函数内部的 this 是 window
+                    update(el, binding) {
+                        if (binding.value) {
+                            el.focus()
+                        }
+                    }
+                }
+            }
+        };
+        var tail = {
+            props: ['calculateLeftItems', 'getAllItems', 'unfinishedItems', 'completedItems', 'clearCompleteItem'],
+            template: `
+            <footer class="footer">
+            <span class="todo-count">
+                <strong v-text="calculateLeftItems"></strong> item left</span>
+            <ul class="filters">
+                <li><a href="#/" class="selected" @click.prevent="getAllItems">All</a></li>
+                <li><a href="#/active" @click.prevent="unfinishedItems">Active</a></li>
+                <li><a href="#/completed" @click.prevent="completedItems">Completed</a></li>
+            </ul>
+            <button class="clear-completed" @click="clearCompleteItem">Clear completed</button>
+        </footer>
+            `,
+        };
+        /* 全局组件注册 */
+        Vue.component('to-dos', {
+            // 子组件内部通过props接收传递过来的值,父组件通过属性将值传递给子组件
+            props: ["isEditing", "checkedFlag", "toDos", "deleteTaskItems",
+                "updateTaskItem", "clearCompleteItem", "getAllItems", "unfinishedItems",
+                "completedItems", "calculateLeftItems", "changeEdit", "quit", "sub", "reloadPage",
+                "varyTaskState"
+            ],
+            data: function () {
+                return {
+                    count: 0
+                };
+            },
+            // 局部组件只能在注册他的父组件中使用，在其子组件中不可用
+            components: {
+                // 自定义子组件的名字：这个组件的选项对象
+                "todo-head": head,
+                "todo-main-body": mainBody,
+                "todo-tail": tail
+            },
+            template: `
+            <section id="todoapp" class="todoapp">
+                <todo-head @add-event="sub"></todo-head>
+                <todo-main-body :to-dos="toDos" :is-editing="isEditing" :reload-page="reloadPage"
+                @edit-event="changeEdit($event)" @quit-event="quit($event)" 
+                @update-event="updateTaskItem($event)" @del-event="deleteTaskItems($event)"
+                @vary-event="varyTaskState($event)">
+                </todo-main-body>
+                <todo-tail :calculate-left-items="calculateLeftItems" :get-all-items="getAllItems" 
+                :unfinished-items="unfinishedItems" :completed-items="completedItems" 
+                :clear-complete-item="clearCompleteItem">
+                </todo-tail>
+            </section>
+            `,
+        });
+
+        /* 自定义指令（获取表单焦点） */
+        // 注册一个全局自定义指令 `v-focus`
+        Vue.directive('focus', {
+            // 当被绑定的元素插入到 DOM 中时
+            inserted: function (el, binding) {
+                //el:指令绑定的元素
+                //binding.name指令名	binding.value绑定值	bingding.expression绑定至(字符串形式)
+                // 聚焦元素
+                el.focus();
+            }
+        });
+        var vm = new Vue({
+            el: "#app",
+            data: {
+                isEditing: null,
+                checkedFlag: false,
+                toDos: []
+            },
+            methods: {
+                // 重新加载页面
+                reloadPage: function (ret) {
+                    if (ret.status == 200) {
+                        // 重新加载任务列表
+                        this.getTaskList();
+                    };
+                },
+                // 调用后台接口添加任务
+                sub: async function (val) {
+                    var ret = await axios.post(`/add`, {
+                        title: val
+                    });
+                    // 重新加载任务列表页面
+                    this.reloadPage(ret);
+                },
+                // 调用后台接口删除列表信息
+                deleteTaskItems: async function (currentId) {
+                    var ret = await axios.delete('/list/' + currentId);
+                    // 重新加载任务列表页面
+                    this.reloadPage(ret);
+                },
+                updateTaskItem: async function (val) {
+                    // 调用后台接口更新编辑内容
+                    var ret = await axios.put(`/list/` + val.id, {
+                        title: val.taskValue
+                    });
+                    // 重新加载任务列表页面
+                    this.reloadPage(ret);
+                    this.isEditing = null;
+                },
+                // 调用后台接口删除全部完成
+                clearCompleteItem: async function () {
+                    var ret = await axios.delete('/deleteall');
+                    setTimeout(() => {
+                        // 重新加载任务列表页面
+                        this.reloadPage(ret);
+                    }, 1000);
+                },
+                getAllItems: function () {
+                    this.getTaskList();
+                },
+                // 调用后台接口获取未完成任务
+                unfinishedItems: async function () {
+                    this.toDos = await axios.get('/state/0');
+                },
+                // 调用后台接口获取已完成任务
+                completedItems: async function () {
+                    this.toDos = await axios.get('/state/1');
+                },
+                // 调用后台接口获取编辑原本内容
+                changeEdit: async function (id) {
+                    var ret = await axios.get('/list/' + id);
+                    this.isEditing = this.toDos[ret.index];
+                },
+                quit: function () {
+                    this.isEditing = null;
+                },
+                // 调用后台接口获取任务列表
+                getTaskList: async function () {
+                    this.toDos = await axios.get('/list');
+                },
+                // 调用后台接口编辑每条任务状态
+                varyTaskState: async function (id) {
+                    var ret = await axios.put('/state/' + id);
+                    // 重新加载任务列表页面
+                    this.reloadPage(ret);
+                }
+            },
+            computed: {
+                calculateLeftItems: function () {
+                    var leftItemsLength = this.toDos.length;
+                    this.toDos.forEach(item => {
+                        leftItemsLength = item.completed ? leftItemsLength - 1 : leftItemsLength;
+                    });
+                    return leftItemsLength;
+                }
+            },
+            mounted: function () {
+                this.getTaskList();
+            },
+        })
+    </script>
+</body>
+
+</html>

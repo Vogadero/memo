@@ -1,0 +1,62 @@
+##基准路径： http://localhost:3001/
+###获取展示列表数据
+GET /list HTTP/1.1
+Host: localhost:3001
+Content-Type: application/json
+Cache-Control: no-cache
+
+###添加内容
+POST /add HTTP/1.1
+Host: localhost:3001
+Content-Type: application/json
+Cache-Control: no-cache
+
+{
+    title:"任务名称"
+}
+
+###跳转到编辑任务信息页面
+GET /list/:id HTTP/1.1
+Host: localhost:3001
+Content-Type: application/json
+Cache-Control: no-cache
+
+###编辑内容
+PUT /list/:id HTTP/1.1
+Host: localhost:3001
+Content-Type: application/json
+Cache-Control: no-cache
+
+{
+    title:"修改内容"
+}
+
+###删除列表信息
+DELETE /list/:id HTTP/1.1
+Host: localhost:3001
+Content-Type: application/json
+Cache-Control: no-cache
+
+###删除全部完成
+DELETE /deleteall HTTP/1.1
+Host: localhost:3001
+Content-Type: application/json
+Cache-Control: no-cache
+
+###实现全选功能
+GET /all/:val HTTP/1.1
+Host: localhost:3001
+Content-Type: application/json
+Cache-Control: no-cache
+
+###获取未完成/已完成列表数据
+GET /state/:state HTTP/1.1
+Host: localhost:3001
+Content-Type: application/json
+Cache-Control: no-cache
+
+###编辑每条任务状态
+PUT /state/:id HTTP/1.1
+Host: localhost:3001
+Content-Type: application/json
+Cache-Control: no-cache
