@@ -9,7 +9,7 @@
   "author": "Vogadero",
   "license": "MIT",
   "dependencies": {
-    "body-parser": "^1.20.0",
+    "body-parser": "^1.20.3",
     "express": "^4.18.1"
   }
 }
